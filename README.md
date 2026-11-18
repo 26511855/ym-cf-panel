@@ -4,7 +4,7 @@
 
 ![版本](https://img.shields.io/badge/版本-v4.0.8-blue) ![部署](https://img.shields.io/badge/部署-Cloudflare%20Pages-orange) ![许可](https://img.shields.io/badge/许可-MIT-green)
 
-**[打开站点](https://cf.ymaym.top) · [下载最新版](https://github.com/YiMing918/ym-cf-panel/releases/latest) · [博客部署教程](https://bk.ymaym.top/post/ym-cf-panel-guide)**
+**[下载最新版](https://github.com/YiMing918/ym-cf-panel/releases/latest) · [博客部署教程](https://bk.ymaym.top/post/ym-cf-panel-guide)**
 
 > 本仓库只包含代码，不包含任何人的账号数据。截图与教程里的账号、域名、数字均为演示数据。本文档按「完全没用过 Cloudflare 的新手也能照着做」的标准写：每一步都写清点哪里、填什么、做完应该看到什么。赶时间可以先看[部署方式对比](#-部署总览部署方式对比先看这张表选一种)选好方式，再跳到对应章节照着做。
 
@@ -505,7 +505,7 @@ npx wrangler pages deploy . --project-name ym-cf-panel
 **怎么加（以 ym-dash 为例）**
 
 1. 打开 ym-dash → 登录 → 进站点管理 →「添加站点」；
-2. 名称填 `CF 面板`（随便起），URL 填你的面板首页地址（如 `https://cf.ymaym.top`，自部署的填你自己的 `*.pages.dev` 或绑定的域名）；
+2. 名称填 `CF 面板`（随便起），URL 填你的面板首页地址（如 `https://panel.example.com`，自部署的填你自己的 `*.pages.dev` 或绑定的域名）；
 3. 保存后先手动点一次「立即检测」。做到这里你应该看到：这条站点显示状态正常、响应几百毫秒；
 4. 之后每 30 分钟自动探一次，结果在 ym-dash 首页看，异常会标红。
 
