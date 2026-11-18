@@ -1,8 +1,8 @@
 # YM CF 面板 · 多账号 Cloudflare 管理面板
 
-![版本](https://img.shields.io/badge/版本-v4.0.7-blue) ![部署](https://img.shields.io/badge/部署-Cloudflare%20Pages-orange) ![许可](https://img.shields.io/badge/许可-MIT-green)
-
 把你名下**多个 Cloudflare 账号**装进一个面板：用量监控（Workers / Pages 函数、KV、D1、R2 用量与免费额度、域名流量与来源国家、状态码、热门路径、缓存命中率）+ 在线管理（DNS、域名设置、规则、邮件转发、KV/D1 数据、Pages/Workers 部署、隧道、清缓存）。部署在 Cloudflare Pages 上，**全程免费**，数据只经过你自己的账号。
+
+![版本](https://img.shields.io/badge/版本-v4.0.7-blue) ![部署](https://img.shields.io/badge/部署-Cloudflare%20Pages-orange) ![许可](https://img.shields.io/badge/许可-MIT-green)
 
 **[打开站点](https://cf.ymaym.top) · [下载最新版](https://github.com/YiMing918/ym-cf-panel/releases/latest) · [博客部署教程](https://bk.ymaym.top/post/ym-cf-panel-guide)**
 
