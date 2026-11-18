@@ -24,7 +24,7 @@ const chk = (name, cond, extra = '') => { if (cond) { pass++; console.log('PASS'
 
 const KEK_A = randomBytes(32).toString('base64');
 const KEK_B = randomBytes(32).toString('base64');
-const LIST = [{ id: 'a1', name: '主账号', accountId: 'f86488d8e8df5d7db666c0a498292af6', token: 'cfut-secret-token-1234567890' }];
+const LIST = [{ id: 'a1', name: '主账号', accountId: '00000000000000000000000000000000', token: 'cfut-secret-token-1234567890' }];
 
 // ① 明文旧数据读得到
 {
