@@ -30,6 +30,19 @@ export const SETTINGS = [
 ];
 const IDS = new Set(SETTINGS.map((s) => s.id));
 
+// Bot Fight Mode reads go through the Bot Management API, which needs its
+// own token permission. Without it the API answers a bare
+// "Authentication error" — the panel used to show that raw English string
+// (2026-11-18 button-walk finding). Translate auth failures into a plain
+// Chinese hint; other failures keep the original message. Wording only —
+// the permission itself can only be granted on the token, not from here.
+export const BOT_FIGHT_PERM_HINT = '这个账号的令牌还没开『机器人管理』权限，去补上权限后这里就能看了';
+export function isAuthError(e) {
+  const s = (e && e.status) || 0;
+  if (s === 401 || s === 403) return true;
+  return /auth|unauthori|forbidden|permission/i.test(String((e && e.message) || e));
+}
+
 export async function onRequestGet({ request, env }) {
   const a = await requireAuth(env, request); if (a.error) return a.error;
   try {
@@ -39,8 +52,13 @@ export async function onRequestGet({ request, env }) {
     const results = await Promise.all(SETTINGS.map(async (s) => {
       try {
         if (s.id === 'bot_fight_mode') {
-          const d = await cfApi(acct, `/zones/${zone}/bot_management`);
-          return [s.id, { value: d.result && d.result.fight_mode ? 'on' : 'off', editable: true }];
+          try {
+            const d = await cfApi(acct, `/zones/${zone}/bot_management`);
+            return [s.id, { value: d.result && d.result.fight_mode ? 'on' : 'off', editable: true }];
+          } catch (e) {
+            if (isAuthError(e)) return [s.id, { error: BOT_FIGHT_PERM_HINT }];
+            throw e;
+          }
         }
         const d = await cfApi(acct, `/zones/${zone}/settings/${s.id}`);
         return [s.id, { value: d.result && d.result.value, editable: !!(d.result && d.result.editable) }];

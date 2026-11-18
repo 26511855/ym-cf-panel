@@ -6,16 +6,34 @@ import { addAudit } from '../_store.js';
 // Needs "Access: Apps and Policies" (+ Service Tokens) account permissions.
 const A = (acct) => `/accounts/${acct.accountId}/access`;
 
+// The apps list is the first thing this page loads, and on an account
+// whose Zero Trust was never initialized the upstream API fails with a
+// bare 502 — the panel used to relay that as a raw "HTTP 502"
+// (2026-11-18 button-walk finding). Translate the known failure shapes
+// into plain Chinese hints; anything else keeps the original message.
+// Wording only — initializing Zero Trust happens in the CF dashboard,
+// and the permission is granted on the token, neither from here.
+export const ZT_NOT_INIT_HINT = '这个账号还没初始化 Zero Trust，去 Cloudflare 控制台开一次就好';
+export const ZT_PERM_HINT = '这个账号的令牌还没开 Zero Trust（Access）权限，去补上权限后这里就能看了';
+export function friendlyAccessError(e) {
+  const msg = String((e && (e.message || e.error)) || e);
+  const s = (e && e.status) || 0;
+  if (s === 502 || /bad gateway/i.test(msg)) return ZT_NOT_INIT_HINT;
+  if (s === 401 || s === 403 || /auth|unauthori|forbidden|permission/i.test(msg)) return ZT_PERM_HINT;
+  if (s === 404 || /not found/i.test(msg)) return ZT_NOT_INIT_HINT;
+  return msg;
+}
+
 export async function onRequestGet({ request, env }) {
   const a = await requireAuth(env, request); if (a.error) return a.error;
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
     const [apps, svct] = await Promise.all([
-      cfApiAll(acct, `${A(acct)}/apps`).catch((e) => ({ error: String(e.message || e) })),
+      cfApiAll(acct, `${A(acct)}/apps`).catch((e) => ({ error: String(e.message || e), status: (e && e.status) || 0 })),
       cfApiAll(acct, `${A(acct)}/service_tokens`).catch(() => null),
     ]);
-    if (apps.error) return json({ error: apps.error }, 502);
+    if (apps.error) return json({ error: friendlyAccessError(apps) }, 502);
     return json({
       apps: (apps.result || []).map((x) => ({
         id: x.id, name: x.name, domain: x.domain, type: x.type,
