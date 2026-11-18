@@ -103,8 +103,8 @@
 | 你打算怎么部署 | 下载哪个文件 | 怎么用 |
 | --- | --- | --- |
 | 方式一：连接 GitHub 自动部署 | **不用下载** | 在 GitHub 上 Fork 本仓库即可，步骤见[方式一](#-方式一pages-连接-github推荐) |
-| 方式二：手机/网页直接上传 | 发行版里的 `ym-cf-panel-deploy-20261114.zip` | 从 [Releases 页](https://github.com/YiMing918/ym-cf-panel/releases/latest)下载，解压后整包上传到 Pages，步骤见[方式二](#-方式二手机部署包直接上传) |
-| 校验下载是否完整 | 发行版里的 `ym-cf-panel-SHA256SUMS.txt` | 里面是上面那个 zip 的 SHA-256（文件指纹）；下载后算一遍自己那份的 SHA-256 对一下，一致才说明没下坏、没被调包 |
+| 方式二：手机/网页直接上传 | 发行版里的 `ym-cf-panel-deploy-*.zip` | 从 [Releases 页](https://github.com/YiMing918/ym-cf-panel/releases/latest)下载，解压后整包上传到 Pages，步骤见[方式二](#-方式二手机部署包直接上传) |
+| 校验下载是否完整 | 发行版里的 `SHA256SUMS.txt` | 里面是上面那个 zip 的 SHA-256（文件指纹）；下载后算一遍自己那份的 SHA-256 对一下，一致才说明没下坏、没被调包 |
 | 方式三：命令行 | **不用下载发行包** | 用 git 克隆仓库即可，步骤见[方式三](#-方式三wrangler-命令行) |
 
 > ⚠️ **不要下错**：GitHub 发行页底部还有两个系统自动生成的 **Source code (zip / tar.gz)**，那是「整个仓库的源码快照」，里面混着文档、教程图等一堆不是部署要用的文件，**不能当部署包上传**。部署包只认文件名带 `-deploy-` 的那个 zip。
@@ -250,12 +250,12 @@
 
 **要用到的东西**
 
-- 发行版里的部署包 `ym-cf-panel-deploy-20261114.zip` 和校验文件 `ym-cf-panel-SHA256SUMS.txt`（从 [Releases 页](https://github.com/YiMing918/ym-cf-panel/releases/latest)下载；认准文件名带 `-deploy-` 的那个，**不要下 Source code**，理由见[先选下载文件](#-先选下载文件)）；
+- 发行版里的部署包 `ym-cf-panel-deploy-*.zip` 和校验文件 `SHA256SUMS.txt`（从 [Releases 页](https://github.com/YiMing918/ym-cf-panel/releases/latest)下载；认准文件名带 `-deploy-` 的那个，**不要下 Source code**，理由见[先选下载文件](#-先选下载文件)）；
 - Cloudflare 账号；不需要 GitHub 账号。
 
 **步骤**
 
-1. **下载并解压部署包**：打开上面的 Releases 页 → 在最新版的「Assets」里点 `ym-cf-panel-deploy-20261114.zip` 下载 → 解压。做到这里你应该看到：解压出的内容里有 `index.html`、一个 `functions` 文件夹、`_headers` 等，且它们**直接躺在这一层**，没有再套一层同名文件夹（如果套了一层，进到里面那层去）。
+1. **下载并解压部署包**：打开上面的 Releases 页 → 在最新版的「Assets」里点 `ym-cf-panel-deploy-*.zip` 下载 → 解压。做到这里你应该看到：解压出的内容里有 `index.html`、一个 `functions` 文件夹、`_headers` 等，且它们**直接躺在这一层**，没有再套一层同名文件夹（如果套了一层，进到里面那层去）。
 2. **创建 KV 命名空间**：同方式一第 2 步：控制台 →「存储和数据库」→「KV」→「创建命名空间」，名字填 `cf-panel-data` → 创建。做到这里你应该看到：KV 列表里有这个命名空间。
 3. **创建 Pages 项目并上传**：控制台 →「Workers 和 Pages」→「创建」→「Pages」→ 选「上传资产（Upload assets）」→ 项目名随便起（如 `ym-cf-panel`）→ 把第 1 步解压出的**全部文件**（包含 `functions` 文件夹本身，注意是把文件夹一起拖进去，不是只拖里面的文件）拖进上传区 → 点「部署站点（Deploy site）」。做到这里你应该看到：部署成功，给你一个 `项目名.pages.dev` 网址。
 4. **（建议）配 SETUP_TOKEN**：同方式一第 4 步：在项目「设置 → 环境变量」里加 `SETUP_TOKEN`，值自己编一串长字符 → 保存。
