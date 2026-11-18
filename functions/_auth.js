@@ -1,5 +1,8 @@
 // Shared auth helpers for YM CF Panel.
-// KV binding: PANEL_KV. Keys: admin / sess:<token> / accounts / settings / cache:*
+// KV binding: PANEL_KV. Keys: admin / sess:<sha256(token)> / accounts / settings / cache:*
+// 会话键只存令牌的 SHA-256（Cookie 里仍放原文）：KV 读面一旦泄露，键名
+// 不再是可直接复用的令牌本体（与 ym-blog 的 token_hash 做法一致）。
+// 改键后存量会话查不到、自动失效，站长重登一次即可。
 const enc = new TextEncoder();
 
 export async function sha256hex(text) {
@@ -75,7 +78,7 @@ export async function getAdmin(env) {
 export async function getSession(env, request) {
   const token = cookieOf(request);
   if (!token) return null;
-  const raw = await env.PANEL_KV.get('sess:' + token);
+  const raw = await env.PANEL_KV.get('sess:' + (await sha256hex(token)));
   if (!raw) return null;
   let s;
   try { s = JSON.parse(raw); } catch { return null; } // 会话损坏按未登录处理，不拖垮全站鉴权
@@ -88,7 +91,7 @@ export async function getSession(env, request) {
 // 旧会话能活满 7 天。
 export async function createSession(env, user, sv = 1) {
   const token = randomToken();
-  await env.PANEL_KV.put('sess:' + token, JSON.stringify({ user, at: Date.now(), sv }), { expirationTtl: 60 * 60 * 24 * 7 });
+  await env.PANEL_KV.put('sess:' + (await sha256hex(token)), JSON.stringify({ user, at: Date.now(), sv }), { expirationTtl: 60 * 60 * 24 * 7 });
   return token;
 }
 

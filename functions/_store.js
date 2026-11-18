@@ -1,11 +1,16 @@
 // KV-backed storage for panel accounts + settings.
+// accounts 整份文档经 _secrets.js 兼容层落盘：配了 DATA_KEK 时是
+// AES-GCM 密文（enc:v1:），没配时与旧版一样明文 JSON；读时自动分流，
+// 存量明文零迁移可读、会在下次正常保存时顺带升级（M26）。
+import { sealValue, openValue } from './_secrets.js';
+
 export async function getAccounts(env) {
   const raw = await env.PANEL_KV.get('accounts');
-  return raw ? JSON.parse(raw) : [];
+  return raw ? JSON.parse(await openValue(env, raw)) : [];
 }
 
 export async function saveAccounts(env, list) {
-  await env.PANEL_KV.put('accounts', JSON.stringify(list));
+  await env.PANEL_KV.put('accounts', await sealValue(env, JSON.stringify(list)));
 }
 
 // ── 整文档读改写的版本校验 + 冲突重试（2026-11-17 审计核验 #13） ──
@@ -25,14 +30,14 @@ function hashOf(str) {
 export async function mutateAccounts(env, fn, retries = 3) {
   for (let i = 0; i < retries; i++) {
     const raw = await env.PANEL_KV.get('accounts');
-    const list = raw ? JSON.parse(raw) : [];
-    const ver = hashOf(raw || '');
+    const list = raw ? JSON.parse(await openValue(env, raw)) : [];
+    const ver = hashOf(raw || ''); // 指纹仍按落盘原文算（明文/密文都适用）
     const r = fn(list);
     if (r && r.error) return r;
     const next = r && r.list ? r.list : list;
     const nowRaw = await env.PANEL_KV.get('accounts');
     if (hashOf(nowRaw || '') !== ver) continue; // 已被别人改过：重读重试
-    await env.PANEL_KV.put('accounts', JSON.stringify(next));
+    await env.PANEL_KV.put('accounts', await sealValue(env, JSON.stringify(next)));
     return { ok: true, list: next };
   }
   return { error: 'conflict' };

@@ -1,6 +1,7 @@
 import { requireAuth, json, readBody } from '../_auth.js';
 import { getAccounts, addAudit } from '../_store.js';
 import { resolveAccount, fail } from '../_manage.js';
+import { sealValue, openValue } from '../_secrets.js';
 
 // R2 object storage via the S3-compatible API (SigV4 signed in-function).
 // The REST API cannot touch objects, so per-account S3 credentials (created in
@@ -31,7 +32,8 @@ const credKey = (id) => 'r2s3:' + id;
 
 async function getCred(env, panelId) {
   const raw = await env.PANEL_KV.get(credKey(panelId));
-  return raw ? JSON.parse(raw) : null;
+  // 经 _secrets.js 兼容层读：配了 DATA_KEK 后新存的是密文，存量明文照常可读（M26）
+  return raw ? JSON.parse(await openValue(env, raw)) : null;
 }
 async function s3(acct, cred, method, path, { query = {}, body = null, payloadHash = null } = {}) {
   const host = `${acct.accountId}.r2.cloudflarestorage.com`;
@@ -135,7 +137,7 @@ export async function onRequestPost({ request, env }) {
       if (b.clear) { await env.PANEL_KV.delete(credKey(b.account)); await addAudit(env, a.sess.user, 'r2.s3cred', '已清除 R2 S3 密钥'); return json({ ok: true }); }
       const ak = String(b.ak || '').trim(); const sk = String(b.sk || '').trim();
       if (ak.length < 10 || sk.length < 10) return json({ error: 'Access Key ID / Secret 太短，不像有效密钥' }, 400);
-      await env.PANEL_KV.put(credKey(b.account), JSON.stringify({ ak, sk }));
+      await env.PANEL_KV.put(credKey(b.account), await sealValue(env, JSON.stringify({ ak, sk })));
       await addAudit(env, a.sess.user, 'r2.s3cred', '已保存 R2 S3 密钥');
       return json({ ok: true });
     }
