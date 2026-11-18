@@ -61,7 +61,15 @@ export function cookieOf(request) {
 
 export async function getAdmin(env) {
   const raw = await env.PANEL_KV.get('admin');
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // admin 文档损坏（写一半、被手工改坏）绝不能静默当成「未初始化」：那会让
+    // requireAuth 回 needs_setup，把站长引向重设覆盖、毁掉尚可修复的数据。
+    // 显式抛错：登录/鉴权以 500 失败、日志里留下明确原因，照 MAINTENANCE 恢复。
+    throw new Error('admin 文档 JSON 损坏：请按 MAINTENANCE.md 的 admin 恢复流程处理（KV 键 admin）');
+  }
 }
 
 export async function getSession(env, request) {
@@ -69,7 +77,9 @@ export async function getSession(env, request) {
   if (!token) return null;
   const raw = await env.PANEL_KV.get('sess:' + token);
   if (!raw) return null;
-  const s = JSON.parse(raw);
+  let s;
+  try { s = JSON.parse(raw); } catch { return null; } // 会话损坏按未登录处理，不拖垮全站鉴权
+  if (!s || typeof s !== 'object') return null;
   return { token, user: s.user, sv: s.sv || 1 };
 }
 
