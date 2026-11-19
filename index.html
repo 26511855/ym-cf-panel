@@ -770,15 +770,27 @@ async function loadKv() {
     catch (err) { toast(err.message); }
   }));
   // v3.1: bulk export / import of the current namespace
+  // v4.0.13: 导出改为规整备份文件（带格式版本号与导出时间），导入时先
+  // 校验版本号、对不上直接拒绝；导入只写文件里有的键、不动其他键，
+  // 完成后报成功/失败条数。旧格式（裸数组）仍可导入。
   body.insertAdjacentHTML('beforeend', `<div style="margin-top:16px"><b>批量导入 / 导出（当前命名空间全部键）</b>
   <div class="btns" style="justify-content:flex-start"><button class="btn ghost sm" id="kvExport">⬇ 导出全部（JSON）</button></div>
-  <label class="mlab">导入 JSON（格式：[{"name":"键","value":"值"}, ...]，同名键会被覆盖）</label>
-  <textarea class="minput" id="kvImportTxt" rows="4" placeholder='[{"name":"hello","value":"world"}]'></textarea>
+  <label class="mlab">导入 JSON（粘贴面板导出的备份文件：带格式版本号，导入前会先校验、版本不对会被拒绝；旧格式 [{"name":"键","value":"值"}, ...] 数组仍可导入。同名键会被覆盖，只写文件里有的键、不会动其他键）</label>
+  <textarea class="minput" id="kvImportTxt" rows="4" placeholder='{"format":"ym-cf-panel-kv-export","version":1,"entries":[{"name":"hello","value":"world"}]}'></textarea>
   <div class="btns" style="justify-content:flex-start"><button class="btn sm" id="kvImportBtn">导入</button></div></div>`);
   $('#kvExport').addEventListener('click', async () => {
     try {
       const r = await api(`/api/kvio?account=${M.acct.id}&ns=${M.ns}`);
-      const blob = new Blob([JSON.stringify(r.entries, null, 2)], { type: 'application/json' });
+      const fileObj = {
+        format: r.format || 'ym-cf-panel-kv-export',
+        version: r.version ?? 1,
+        exportedAt: r.exportedAt || new Date().toISOString(),
+        namespace: r.namespace ?? M.ns,
+        total: r.total,
+        truncated: !!r.truncated,
+        entries: r.entries || [],
+      };
+      const blob = new Blob([JSON.stringify(fileObj, null, 2)], { type: 'application/json' });
       const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
       link.download = 'kv-export.json'; link.click(); URL.revokeObjectURL(link.href);
       toast(r.truncated ? `⚠️ 键太多，导出已被截断（${r.total} 条），这份备份不完整` : `已导出 ${r.total} 条`);
@@ -786,9 +798,15 @@ async function loadKv() {
   });
   $('#kvImportBtn').addEventListener('click', (e) => arm(e.target, async () => {
     try {
-      const entries = JSON.parse($('#kvImportTxt').value);
-      const r = await api('/api/kvio', { method: 'POST', body: JSON.stringify({ account: M.acct.id, ns: M.ns, entries }) });
-      toast(`已导入 ${r.written} 条`); refreshKvList(true);
+      const parsed = JSON.parse($('#kvImportTxt').value);
+      let payload;
+      if (Array.isArray(parsed)) payload = { account: M.acct.id, ns: M.ns, entries: parsed };
+      else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.entries)) payload = { account: M.acct.id, ns: M.ns, backup: parsed };
+      else throw new Error('文件格式不对：不是面板 KV 备份文件');
+      const r = await api('/api/kvio', { method: 'POST', body: JSON.stringify(payload) });
+      if (r.failed) toast(`导入完成：成功 ${r.succeeded} 条，失败 ${r.failed} 条`);
+      else toast(`已导入 ${r.written} 条`);
+      refreshKvList(true);
     } catch (err) { toast('导入失败：' + err.message); }
   }));
   refreshKvList(true);
