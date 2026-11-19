@@ -21,10 +21,13 @@ export async function onRequestPost({ request, env }) {
       ['R2', `https://api.cloudflare.com/client/v4/accounts/${acct.accountId}/r2/buckets?per_page=1`],
     ];
     for (const [label, url] of checks) {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 8000); // 单项探针 8 秒超时，避免一个慢端点拖住整轮自检
       try {
-        const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + acct.token } });
+        const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + acct.token }, signal: ctl.signal });
         item.probes[label] = r.ok ? 'ok' : 'HTTP ' + r.status;
-      } catch (e) { item.probes[label] = '失败'; }
+      } catch (e) { item.probes[label] = e && e.name === 'AbortError' ? '超时' : '失败'; }
+      finally { clearTimeout(timer); }
     }
     out.push(item);
   }

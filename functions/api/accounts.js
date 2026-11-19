@@ -18,7 +18,8 @@ export async function onRequestGet({ request, env }) {
 export async function onRequestPost({ request, env }) {
   const a = await requireAuth(env, request);
   if (a.error) return a.error;
-  const { name, accountId, token } = await readBody(request);
+  let _b; try { _b = await readBody(request); } catch (e) { return json({ error: e.message }, e.status || 400); }
+  const { name, accountId, token } = _b;
   const n = String(name || '').trim();
   const id = String(accountId || '').trim();
   const t = String(token || '').trim();
@@ -45,7 +46,8 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestPut({ request, env }) {
   const a = await requireAuth(env, request);
   if (a.error) return a.error;
-  const { id, name, accountId, token } = await readBody(request);
+  let _b; try { _b = await readBody(request); } catch (e) { return json({ error: e.message }, e.status || 400); }
+  const { id, name, accountId, token } = _b;
   const list = await getAccounts(env);
   const acct = list.find((x) => x.id === id);
   if (!acct) return json({ error: '账号不存在' }, 404);
@@ -66,9 +68,11 @@ export async function onRequestPut({ request, env }) {
     try { await verifyToken({ ...acct, token: t }); } catch (e) { return json({ error: '新令牌验证失败：' + e.message }, 400); }
     acct.token = t;
   }
-  if (idChanged && !token) {
-    // 只改了 ID 没换令牌：也要确认现有令牌能访问新账号，否则存进去才发现处处报错
-    try { await verifyAccountAccess(acct); } catch (e) { return json({ error: '现有令牌无法访问新账号：' + e.message }, 400); }
+  if (idChanged) {
+    // 只要改了 ID 就必须确认（新）令牌能访问新账号：同时改 ID+令牌时以前
+    // 只验了令牌本身、跳过账号访问权校验，新账号可能根本不在令牌权限里，
+    // 存进去才发现处处报错。acct 此时已带上新 ID 与（如有）新令牌。
+    try { await verifyAccountAccess(acct); } catch (e) { return json({ error: '令牌无法访问新账号：' + e.message }, 400); }
   }
   // 写回走版本校验+重试（#13）：把已验证的改动重新应用到最新列表上
   const patch = { name: acct.name, accountId: acct.accountId, token: acct.token };

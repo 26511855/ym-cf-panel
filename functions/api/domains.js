@@ -10,7 +10,7 @@ export async function onRequestGet({ request, env }) {
     const acct = await resolveAccount(env, url.searchParams.get('account'));
     const what = url.searchParams.get('what');
     if (what === 'ssl') {
-      const data = await cfApi(acct, `/zones/${url.searchParams.get('zone')}/settings/ssl`);
+      const data = await cfApi(acct, `/zones/${encodeURIComponent(url.searchParams.get('zone') || '')}/settings/ssl`);
       return json({ ssl: data.result && data.result.value });
     }
     if (what === 'pagesdomains') {
@@ -30,7 +30,7 @@ export async function onRequestPost({ request, env }) {
     if (b.what === 'ssl') {
       const mode = ['off', 'flexible', 'full', 'strict'].includes(b.mode) ? b.mode : null;
       if (!mode) return json({ error: 'SSL 模式不对' }, 400);
-      await cfApi(acct, `/zones/${b.zone}/settings/ssl`, { method: 'PATCH', body: JSON.stringify({ value: mode }) });
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/settings/ssl`, { method: 'PATCH', body: JSON.stringify({ value: mode }) });
       await addAudit(env, a.sess.user, 'domain.post', acct.name);
       return json({ ok: true });
     }

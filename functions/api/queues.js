@@ -19,7 +19,7 @@ export async function onRequestGet({ request, env }) {
     for (const q of d.result || []) {
       let detail = null;
       if (qi < DETAIL_CAP) {
-        try { detail = (await cfApi(acct, `${A(acct)}/${q.queue_id}`)).result; } catch { /* counts optional */ }
+        try { detail = (await cfApi(acct, `${A(acct)}/${encodeURIComponent(q.queue_id)}`)).result; } catch { /* counts optional */ }
       }
       qi++;
       queues.push({
@@ -51,7 +51,7 @@ export async function onRequestDelete({ request, env }) {
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
-    await cfApi(acct, `${A(acct)}/${url.searchParams.get('id')}`, { method: 'DELETE' });
+    await cfApi(acct, `${A(acct)}/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
     await addAudit(env, a.sess.user, 'queue.delete', `${acct.name} · 删除队列`);
     return json({ ok: true });
   } catch (e) { return fail(e); }

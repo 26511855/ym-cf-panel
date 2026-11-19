@@ -53,19 +53,19 @@ export async function onRequestGet({ request, env }) {
       try {
         if (s.id === 'bot_fight_mode') {
           try {
-            const d = await cfApi(acct, `/zones/${zone}/bot_management`);
+            const d = await cfApi(acct, `/zones/${encodeURIComponent(zone)}/bot_management`);
             return [s.id, { value: d.result && d.result.fight_mode ? 'on' : 'off', editable: true }];
           } catch (e) {
             if (isAuthError(e)) return [s.id, { error: BOT_FIGHT_PERM_HINT }];
             throw e;
           }
         }
-        const d = await cfApi(acct, `/zones/${zone}/settings/${s.id}`);
+        const d = await cfApi(acct, `/zones/${encodeURIComponent(zone)}/settings/${s.id}`);
         return [s.id, { value: d.result && d.result.value, editable: !!(d.result && d.result.editable) }];
       } catch (e) { return [s.id, { error: String(e.message || e) }]; }
     }));
     let dnssec = null;
-    try { const d = await cfApi(acct, `/zones/${zone}/dnssec`); dnssec = { status: d.result && d.result.status }; } catch { /* needs DNS perm */ }
+    try { const d = await cfApi(acct, `/zones/${encodeURIComponent(zone)}/dnssec`); dnssec = { status: d.result && d.result.status }; } catch { /* needs DNS perm */ }
     return json({ settings: Object.fromEntries(results), defs: SETTINGS, dnssec });
   } catch (e) { return fail(e); }
 }
@@ -77,12 +77,12 @@ export async function onRequestPost({ request, env }) {
     const acct = await resolveAccount(env, b.account);
     if (b.what === 'dnssec') {
       const status = b.enabled ? 'active' : 'disabled';
-      await cfApi(acct, `/zones/${b.zone}/dnssec`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/dnssec`, { method: 'PATCH', body: JSON.stringify({ status }) });
       await addAudit(env, a.sess.user, 'zone.dnssec', `${acct.name} · DNSSEC ${status}`);
       return json({ ok: true });
     }
     if (b.id === 'bot_fight_mode') {
-      await cfApi(acct, `/zones/${b.zone}/bot_management`, { method: 'PUT', body: JSON.stringify({ fight_mode: b.value === 'on' || b.value === true }) });
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/bot_management`, { method: 'PUT', body: JSON.stringify({ fight_mode: b.value === 'on' || b.value === true }) });
       await addAudit(env, a.sess.user, 'zone.botfight', `${acct.name} · 机器人战斗模式 ${b.value}`);
       return json({ ok: true });
     }
@@ -91,7 +91,7 @@ export async function onRequestPost({ request, env }) {
     let value = b.value;
     if (def.type === 'toggle') value = value === 'on' || value === true ? 'on' : 'off';
     if (def.type === 'select' && !def.options.includes(value)) return json({ error: '取值不对' }, 400);
-    await cfApi(acct, `/zones/${b.zone}/settings/${b.id}`, { method: 'PATCH', body: JSON.stringify({ value }) });
+    await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/settings/${encodeURIComponent(b.id)}`, { method: 'PATCH', body: JSON.stringify({ value }) });
     await addAudit(env, a.sess.user, 'zone.setting', `${acct.name} · ${b.id} = ${value}`);
     return json({ ok: true });
   } catch (e) { return fail(e); }

@@ -13,7 +13,7 @@ export async function onRequestPost({ request, env }) {
       if (!urls.length) return json({ error: '至少填一个网址' }, 400);
       payload = { files: urls };
     } else payload = { purge_everything: true };
-    await cfApi(acct, `/zones/${b.zone}/purge_cache`, { method: 'POST', body: JSON.stringify(payload) });
+    await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/purge_cache`, { method: 'POST', body: JSON.stringify(payload) });
     await addAudit(env, a.sess.user, 'cache.purge.post', acct.name);
     return json({ ok: true });
   } catch (e) { return fail(e); }

@@ -4,6 +4,7 @@ import { getAccounts, getSettings } from '../_store.js';
 // Public aggregate (only when the admin enables it in settings).
 // Contains totals only — never tokens, never per-resource detail.
 export async function onRequestGet({ request, env }) {
+  if (!env.PANEL_KV) return json({ error: 'PANEL_KV 未绑定' }, 500);
   const settings = await getSettings(env);
   if (!settings.publicSummary) return json({ enabled: false });
   const cacheKey = 'cache:public:today';

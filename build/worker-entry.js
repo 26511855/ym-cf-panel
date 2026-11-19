@@ -136,8 +136,14 @@ export default {
     let path = url.pathname;
     if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
     const route = ROUTES[path];
+    if (!route && path.startsWith('/api/')) {
+      return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+    }
     if (route) {
       const handler = route['onRequest' + request.method.charAt(0) + request.method.slice(1).toLowerCase()];
+      if (!handler) {
+        return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+      }
       if (handler) {
         return handler({
           request,

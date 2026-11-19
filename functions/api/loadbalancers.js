@@ -13,7 +13,7 @@ export async function onRequestGet({ request, env }) {
     const acct = await resolveAccount(env, url.searchParams.get('account'));
     const zone = url.searchParams.get('zone');
     const [lbs, pools, monitors] = await Promise.all([
-      zone ? cfApiAll(acct, `/zones/${zone}/load_balancers`).catch((e) => ({ error: String(e.message || e) })) : Promise.resolve({ result: [], result_info: { total_count: 0, truncated: false } }),
+      zone ? cfApiAll(acct, `/zones/${encodeURIComponent(zone)}/load_balancers`).catch((e) => ({ error: String(e.message || e) })) : Promise.resolve({ result: [], result_info: { total_count: 0, truncated: false } }),
       cfApiAll(acct, `${AA(acct)}/load_balancers/pools`).catch(() => null),
       cfApiAll(acct, `${AA(acct)}/load_balancers/monitors`).catch(() => null),
     ]);
@@ -37,7 +37,7 @@ export async function onRequestPost({ request, env }) {
     const b = await readBody(request);
     const acct = await resolveAccount(env, b.account);
     if (b.what === 'toggle') {
-      await cfApi(acct, `/zones/${b.zone}/load_balancers/${b.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: !!b.enabled }) });
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/load_balancers/${encodeURIComponent(b.id)}`, { method: 'PATCH', body: JSON.stringify({ enabled: !!b.enabled }) });
       await addAudit(env, a.sess.user, 'lb.toggle', `${acct.name} · 负载均衡 ${b.enabled ? '启用' : '停用'}`);
       return json({ ok: true });
     }
@@ -50,7 +50,7 @@ export async function onRequestDelete({ request, env }) {
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
-    await cfApi(acct, `/zones/${url.searchParams.get('zone')}/load_balancers/${url.searchParams.get('id')}`, { method: 'DELETE' });
+    await cfApi(acct, `/zones/${encodeURIComponent(url.searchParams.get('zone') || '')}/load_balancers/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
     await addAudit(env, a.sess.user, 'lb.delete', `${acct.name} · 删除负载均衡`);
     return json({ ok: true });
   } catch (e) { return fail(e); }

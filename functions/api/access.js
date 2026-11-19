@@ -86,10 +86,10 @@ export async function onRequestDelete({ request, env }) {
     const acct = await resolveAccount(env, url.searchParams.get('account'));
     const kind = url.searchParams.get('kind');
     if (kind === 'app') {
-      await cfApi(acct, `${A(acct)}/apps/${url.searchParams.get('id')}`, { method: 'DELETE' });
+      await cfApi(acct, `${A(acct)}/apps/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
       await addAudit(env, a.sess.user, 'access.app-delete', `${acct.name} · 删除 Access 应用`);
     } else if (kind === 'svctoken') {
-      await cfApi(acct, `${A(acct)}/service_tokens/${url.searchParams.get('id')}`, { method: 'DELETE' });
+      await cfApi(acct, `${A(acct)}/service_tokens/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
       await addAudit(env, a.sess.user, 'access.svctoken-delete', `${acct.name} · 删除服务令牌`);
     } else return json({ error: '未知类型' }, 400);
     return json({ ok: true });

@@ -2,6 +2,7 @@ import { getAdmin, getSession, json } from '../_auth.js';
 import { getAccounts, getSettings, maskAccount } from '../_store.js';
 
 export async function onRequestGet({ request, env }) {
+  if (!env.PANEL_KV) return json({ error: 'PANEL_KV 未绑定：请在 Pages 项目设置里把 KV 绑定名填为 PANEL_KV 后重新部署' }, 500);
   const admin = await getAdmin(env);
   const settings = await getSettings(env);
   if (!admin) return json({ needsSetup: true, authed: false, settings: { panelName: settings.panelName, publicSummary: settings.publicSummary } });

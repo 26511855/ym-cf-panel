@@ -83,7 +83,7 @@ export async function onRequestDelete({ request, env }) {
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
-    await cfApi(acct, `${A(acct)}/members/${url.searchParams.get('member')}`, { method: 'DELETE' });
+    await cfApi(acct, `${A(acct)}/members/${encodeURIComponent(url.searchParams.get('member') || '')}`, { method: 'DELETE' });
     await addAudit(env, a.sess.user, 'member.remove', `${acct.name} · 移除成员`);
     return json({ ok: true });
   } catch (e) { return fail(e); }

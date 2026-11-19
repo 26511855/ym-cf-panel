@@ -55,7 +55,7 @@ export async function onRequestDelete({ request, env }) {
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
-    await cfApi(acct, `${A(acct)}/tokens/${url.searchParams.get('id')}`, { method: 'DELETE' });
+    await cfApi(acct, `${A(acct)}/tokens/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
     await addAudit(env, a.sess.user, 'token.delete', `${acct.name} · 删除账号令牌`);
     return json({ ok: true });
   } catch (e) { return fail(e); }

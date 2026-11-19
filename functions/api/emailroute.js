@@ -18,9 +18,9 @@ export async function onRequestGet({ request, env }) {
     }
     const zone = url.searchParams.get('zone');
     const [settings, rules, ca] = await Promise.all([
-      cfApi(acct, `/zones/${zone}/email/routing`).catch(() => null),
-      cfApiAll(acct, `/zones/${zone}/email/routing/rules`).catch(() => null),
-      cfApi(acct, `/zones/${zone}/email/routing/rules/catch_all`).catch(() => null),
+      cfApi(acct, `/zones/${encodeURIComponent(zone)}/email/routing`).catch(() => null),
+      cfApiAll(acct, `/zones/${encodeURIComponent(zone)}/email/routing/rules`).catch(() => null),
+      cfApi(acct, `/zones/${encodeURIComponent(zone)}/email/routing/rules/catch_all`).catch(() => null),
     ]);
     const catchall = ca && ca.result;
     return json({
@@ -43,14 +43,14 @@ export async function onRequestPost({ request, env }) {
     const b = await readBody(request);
     const acct = await resolveAccount(env, b.account);
     if (b.what === 'toggle') {
-      await cfApi(acct, `/zones/${b.zone}/email/routing/${b.enabled ? 'enable' : 'disable'}`, { method: 'POST', body: '{}' });
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/email/routing/${b.enabled ? 'enable' : 'disable'}`, { method: 'POST', body: '{}' });
       await addAudit(env, a.sess.user, 'email.post', acct.name);
       return json({ ok: true });
     }
     if (b.what === 'catchall') {
-      const d = await cfApi(acct, `/zones/${b.zone}/email/routing/rules/catch_all`);
+      const d = await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/email/routing/rules/catch_all`);
       const cur = d.result || {};
-      await cfApi(acct, `/zones/${b.zone}/email/routing/rules/catch_all`, {
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/email/routing/rules/catch_all`, {
         method: 'PUT',
         body: JSON.stringify({
           name: cur.name || 'catch-all', enabled: !!b.enabled,
@@ -65,7 +65,7 @@ export async function onRequestPost({ request, env }) {
       const email = String(b.email || '').trim();
       const to = String(b.forwardTo || '').trim();
       if (!email.includes('@') || !to.includes('@')) return json({ error: '邮箱格式不对' }, 400);
-      await cfApi(acct, `/zones/${b.zone}/email/routing/rules`, {
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/email/routing/rules`, {
         method: 'POST',
         body: JSON.stringify({
           name: email, enabled: true,
@@ -85,7 +85,7 @@ export async function onRequestDelete({ request, env }) {
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
-    await cfApi(acct, `/zones/${url.searchParams.get('zone')}/email/routing/rules/${url.searchParams.get('id')}`, { method: 'DELETE' });
+    await cfApi(acct, `/zones/${encodeURIComponent(url.searchParams.get('zone') || '')}/email/routing/rules/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
     await addAudit(env, a.sess.user, 'email.delete', acct.name);
     return json({ ok: true });
   } catch (e) { return fail(e); }

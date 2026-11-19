@@ -1,5 +1,5 @@
 import { requireAuth, json, readBody } from '../_auth.js';
-import { resolveAccount, cfApi, fail } from '../_manage.js';
+import { resolveAccount, cfApi, cfApiAll, fail } from '../_manage.js';
 import { addAudit } from '../_store.js';
 
 function bodyOf(b) {
@@ -34,17 +34,12 @@ export async function onRequestGet({ request, env }) {
     const acct = await resolveAccount(env, url.searchParams.get('account'));
     const zone = url.searchParams.get('zone');
     if (!zone) return json({ error: '缺少 zone' }, 400);
-    const all = [];
-    let totalCount = 0;
-    for (let page = 1; page <= 50; page++) { // guard: 50 pages x 100 = 5000 records max; total/truncated below surface any excess
-      const data = await cfApi(acct, `/zones/${zone}/dns_records?per_page=100&page=${page}`);
-      const rows = data.result || [];
-      if (data.result_info && data.result_info.total_count) totalCount = data.result_info.total_count;
-      all.push(...rows);
-      const totalPages = (data.result_info && data.result_info.total_pages) || 0;
-      if (!rows.length || (totalPages ? page >= totalPages : rows.length < 100)) break;
-    }
-    return json({ records: all.map((r) => ({ id: r.id, type: r.type, name: r.name, content: r.content, ttl: r.ttl, proxied: !!r.proxied, priority: r.priority, comment: r.comment || '', tags: r.tags || [] })), total: totalCount || all.length, truncated: totalCount > all.length });
+    // 分页统一走 cfApiAll（与全仓同口径：per_page=100、50 页/5000 条护栏、
+    // 重复页检测、truncated 如实标注），不再自写分页循环
+    const data = await cfApiAll(acct, `/zones/${encodeURIComponent(zone)}/dns_records`);
+    const all = data.result || [];
+    const totalCount = data.result_info ? data.result_info.total_count : all.length;
+    return json({ records: all.map((r) => ({ id: r.id, type: r.type, name: r.name, content: r.content, ttl: r.ttl, proxied: !!r.proxied, priority: r.priority, comment: r.comment || '', tags: r.tags || [] })), total: totalCount || all.length, truncated: !!(data.result_info && data.result_info.truncated) });
   } catch (e) { return fail(e); }
 }
 
@@ -53,7 +48,7 @@ export async function onRequestPost({ request, env }) {
   try {
     const b = await readBody(request);
     const acct = await resolveAccount(env, b.account);
-    const data = await cfApi(acct, `/zones/${b.zone}/dns_records`, { method: 'POST', body: JSON.stringify(bodyOf(b)) });
+    const data = await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/dns_records`, { method: 'POST', body: JSON.stringify(bodyOf(b)) });
     await addAudit(env, a.sess.user, 'dns.create', `${acct.name} · ${b.type || ''} ${b.name || ''}`);
     return json({ ok: true, record: data.result });
   } catch (e) { return fail(e); }
@@ -66,7 +61,7 @@ export async function onRequestPut({ request, env }) {
     const acct = await resolveAccount(env, b.account);
     // 改 PATCH 部分更新：以前 PUT 整条覆盖，bodyOf 没组装的字段
     // （comment / tags）会被 CF 清掉；PATCH 只改提交的字段，其余保留
-    const data = await cfApi(acct, `/zones/${b.zone}/dns_records/${b.id}`, { method: 'PATCH', body: JSON.stringify(bodyOf(b)) });
+    const data = await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/dns_records/${encodeURIComponent(b.id)}`, { method: 'PATCH', body: JSON.stringify(bodyOf(b)) });
     await addAudit(env, a.sess.user, 'dns.update', `${acct.name} · ${b.type || ''} ${b.name || ''}`);
     return json({ ok: true, record: data.result });
   } catch (e) { return fail(e); }
@@ -77,7 +72,7 @@ export async function onRequestDelete({ request, env }) {
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
-    await cfApi(acct, `/zones/${url.searchParams.get('zone')}/dns_records/${url.searchParams.get('id')}`, { method: 'DELETE' });
+    await cfApi(acct, `/zones/${encodeURIComponent(url.searchParams.get('zone') || '')}/dns_records/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
     await addAudit(env, a.sess.user, 'dns.delete', acct.name);
     return json({ ok: true });
   } catch (e) { return fail(e); }

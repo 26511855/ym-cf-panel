@@ -35,8 +35,8 @@ export async function onRequestGet({ request, env }) {
     const one = url.searchParams.get('tunnel');
     if (one) {
       const [t, cfg] = await Promise.all([
-        cfApi(acct, `${base(acct)}/${one}`).catch(() => null),
-        cfApi(acct, `${base(acct)}/${one}/configurations`).catch(() => null),
+        cfApi(acct, `${base(acct)}/${encodeURIComponent(one)}`).catch(() => null),
+        cfApi(acct, `${base(acct)}/${encodeURIComponent(one)}/configurations`).catch(() => null),
       ]);
       const r = (t && t.result) || {};
       const cfgObj = (cfg && cfg.result && cfg.result.config) || {};
@@ -78,7 +78,7 @@ export async function onRequestPost({ request, env }) {
     if (b.what === 'route') {
       const host = String(b.hostname || '').trim();
       if (!host) return json({ error: '主机名不能为空' }, 400);
-      await cfApi(acct, `/zones/${b.zone}/dns_records`, {
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/dns_records`, {
         method: 'POST',
         body: JSON.stringify({ type: 'CNAME', name: host, content: `${b.tunnel}.cfargotunnel.com`, proxied: true, ttl: 1 }),
       });
@@ -93,12 +93,12 @@ export async function onRequestPost({ request, env }) {
       // abort — never overwrite blind.
       let curCfg = null;
       try {
-        const cur = await cfApi(acct, `${base(acct)}/${b.tunnel}/configurations`);
+        const cur = await cfApi(acct, `${base(acct)}/${encodeURIComponent(b.tunnel)}/configurations`);
         curCfg = (cur && cur.result && cur.result.config) || null;
       } catch { curCfg = null; }
       if (!curCfg) return json({ error: '读取现有隧道配置失败，已取消保存（避免丢失原有配置）' }, 502);
       const config = buildIngressConfig(curCfg, b.rules);
-      await cfApi(acct, `${base(acct)}/${b.tunnel}/configurations`, { method: 'PUT', body: JSON.stringify({ config }) });
+      await cfApi(acct, `${base(acct)}/${encodeURIComponent(b.tunnel)}/configurations`, { method: 'PUT', body: JSON.stringify({ config }) });
       await addAudit(env, a.sess.user, 'tunnel.post', acct.name);
       return json({ ok: true });
     }
@@ -112,8 +112,8 @@ export async function onRequestDelete({ request, env }) {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
     const id = url.searchParams.get('tunnel');
-    await cfApi(acct, `${base(acct)}/${id}/connections`, { method: 'DELETE' }).catch(() => null);
-    await cfApi(acct, `${base(acct)}/${id}`, { method: 'DELETE' });
+    await cfApi(acct, `${base(acct)}/${encodeURIComponent(id)}/connections`, { method: 'DELETE' }).catch(() => null);
+    await cfApi(acct, `${base(acct)}/${encodeURIComponent(id)}`, { method: 'DELETE' });
     await addAudit(env, a.sess.user, 'tunnel.delete', acct.name);
     return json({ ok: true });
   } catch (e) { return fail(e); }

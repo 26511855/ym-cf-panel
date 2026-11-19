@@ -19,8 +19,10 @@ export async function onRequestGet({ request, env }) {
   if (!fresh) {
     const raw = await env.PANEL_KV.get(cacheKey);
     if (raw) {
-      const c = JSON.parse(raw);
-      if (Date.now() - c.at < CACHE_TTL_MS) return json({ ...c.data, cachedAt: c.at });
+      try {
+        const c = JSON.parse(raw);
+        if (Date.now() - c.at < CACHE_TTL_MS) return json({ ...c.data, cachedAt: c.at });
+      } catch { /* 缓存损坏：忽略缓存、走下方现算 */ }
     }
   }
   const data = await getUsage(acct, range);

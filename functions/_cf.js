@@ -20,17 +20,36 @@ const R2_CLASS_A = new Set(['PutObject', 'CopyObject', 'CompleteMultipartUpload'
   'UploadPart', 'UploadPartCopy', 'ListBuckets', 'ListObjects', 'ListObjectsV2', 'ListMultipartUploads',
   'ListParts', 'PutBucket', 'PutBucketCors', 'PutBucketLifecycleConfiguration', 'CreateBucket']);
 
+function encodeCfPath(path) { // 与 _manage.js 同口径：路径逐段 decode→encode 归一化，查询串不动
+  const q = path.indexOf('?');
+  const p = q < 0 ? path : path.slice(0, q);
+  const rest = q < 0 ? '' : path.slice(q);
+  return p.split('/').map((seg) => {
+    if (!seg) return seg;
+    try { return encodeURIComponent(decodeURIComponent(seg)); } catch { return encodeURIComponent(seg); }
+  }).join('/') + rest;
+}
+
+const CF_TIMEOUT_MS = 10000;
 async function cfFetch(account, path, opts = {}) {
-  const r = await fetch(API + path, {
-    ...opts,
-    headers: { 'Authorization': 'Bearer ' + account.token, 'Content-Type': 'application/json', ...(opts.headers || {}) },
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok || data.success === false) {
-    const msg = (data.errors && data.errors[0] && data.errors[0].message) || ('HTTP ' + r.status);
-    throw new Error(msg);
-  }
-  return data;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), CF_TIMEOUT_MS);
+  try {
+    const r = await fetch(API + encodeCfPath(path), {
+      ...opts,
+      signal: opts.signal || ctl.signal,
+      headers: { 'Authorization': 'Bearer ' + account.token, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.success === false) {
+      const msg = (data.errors && data.errors[0] && data.errors[0].message) || ('HTTP ' + r.status);
+      throw new Error(msg);
+    }
+    return data;
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('Cloudflare 接口超时（10 秒）');
+    throw e;
+  } finally { clearTimeout(timer); }
 }
 
 // Full-pagination for cfFetch (same guardrails as _manage.js cfApiAll:

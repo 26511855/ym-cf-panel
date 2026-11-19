@@ -25,7 +25,7 @@ export async function onRequestPost({ request, env }) { // rollback | retry
   try {
     const b = await readBody(request);
     const acct = await resolveAccount(env, b.account);
-    const path = `/accounts/${acct.accountId}/pages/projects/${encodeURIComponent(b.project)}/deployments/${b.deployment}`;
+    const path = `/accounts/${acct.accountId}/pages/projects/${encodeURIComponent(b.project)}/deployments/${encodeURIComponent(b.deployment)}`;
     if (b.action === 'rollback') await cfApi(acct, path + '/rollback', { method: 'POST' });
     else if (b.action === 'retry') await cfApi(acct, path + '/retry', { method: 'POST' });
     else return json({ error: '未知操作' }, 400);

@@ -8,7 +8,7 @@ export async function onRequestGet({ request, env }) {
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
-    const r = await fetch(`https://api.cloudflare.com/client/v4/zones/${url.searchParams.get('zone')}/dns_records/export`, { headers: { 'Authorization': 'Bearer ' + acct.token } });
+    const r = await fetch(`https://api.cloudflare.com/client/v4/zones/${encodeURIComponent(url.searchParams.get('zone') || '')}/dns_records/export`, { headers: { 'Authorization': 'Bearer ' + acct.token }, signal: (() => { try { return AbortSignal.timeout(10000); } catch { return undefined; } })() });
     if (!r.ok) throw new Error('导出失败 HTTP ' + r.status);
     return json({ text: await r.text() });
   } catch (e) { return fail(e); }
@@ -24,8 +24,8 @@ export async function onRequestPost({ request, env }) {
     if (content.length > 1024 * 1024) return json({ error: '内容超过 1MB' }, 400);
     const form = new FormData();
     form.append('file', new Blob([content], { type: 'text/plain' }), 'import.zone');
-    const r = await fetch(`https://api.cloudflare.com/client/v4/zones/${b.zone}/dns_records/import`, {
-      method: 'POST', headers: { 'Authorization': 'Bearer ' + acct.token }, body: form,
+    const r = await fetch(`https://api.cloudflare.com/client/v4/zones/${encodeURIComponent(String(b.zone || ''))}/dns_records/import`, {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + acct.token }, body: form, signal: (() => { try { return AbortSignal.timeout(15000); } catch { return undefined; } })(),
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok || data.success === false) throw new Error((data.errors && data.errors[0] && data.errors[0].message) || ('HTTP ' + r.status));

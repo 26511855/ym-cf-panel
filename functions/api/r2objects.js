@@ -33,7 +33,8 @@ const credKey = (id) => 'r2s3:' + id;
 async function getCred(env, panelId) {
   const raw = await env.PANEL_KV.get(credKey(panelId));
   // 经 _secrets.js 兼容层读：配了 DATA_KEK 后新存的是密文，存量明文照常可读（M26）
-  return raw ? JSON.parse(await openValue(env, raw)) : null;
+  if (!raw) return null;
+  try { return JSON.parse(await openValue(env, raw)); } catch (e) { if (e && /DATA_KEK|解密|加密/.test(String(e.message || e))) throw e; return null; } // 凭证记录损坏按未配置处理，提示重填
 }
 async function s3(acct, cred, method, path, { query = {}, body = null, payloadHash = null } = {}) {
   const host = `${acct.accountId}.r2.cloudflarestorage.com`;
@@ -49,7 +50,8 @@ async function s3(acct, cred, method, path, { query = {}, body = null, payloadHa
   const toSign = ['AWS4-HMAC-SHA256', stamp, scope, hex(await sha256(canon))].join('\n');
   const sig = hex(await hmac(await signingKey(cred.sk, date), toSign));
   const url = `https://${host}${path}${qs ? '?' + qs : ''}`;
-  const resp = await fetch(url, { method, headers: { ...headers, Authorization: `AWS4-HMAC-SHA256 Credential=${cred.ak}/${scope}, SignedHeaders=${signedHeaders}, Signature=${sig}` }, body });
+  const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 15000);
+  let resp; try { resp = await fetch(url, { method, headers: { ...headers, Authorization: `AWS4-HMAC-SHA256 Credential=${cred.ak}/${scope}, SignedHeaders=${signedHeaders}, Signature=${sig}` }, body, signal: ctl.signal }); } finally { clearTimeout(timer); }
   return resp;
 }
 async function presign(acct, cred, bucket, key, expiresSec) {
@@ -145,7 +147,11 @@ export async function onRequestPost({ request, env }) {
     if (!cred) return json({ error: '还没填 S3 密钥' }, 400);
     const acct = await resolveAccount(env, b.account);
     if (b.what === 'upload') {
-      const bytes = Uint8Array.from(atob(String(b.data || '')), (c) => c.charCodeAt(0));
+      const dataStr = String(b.data || '');
+      // 先按 base64 字符串长度拦（解码后 4MB 上限对应的编码长度），
+      // 超限不进 atob，避免先把超大载荷整段解码进内存才报错
+      if (dataStr.length > Math.ceil((4 * 1024 * 1024) / 3) * 4) return json({ error: '面板上传上限 4MB，更大的文件请用 S3 工具' }, 400);
+      const bytes = Uint8Array.from(atob(dataStr), (c) => c.charCodeAt(0));
       if (bytes.length > 4 * 1024 * 1024) return json({ error: '面板上传上限 4MB，更大的文件请用 S3 工具' }, 400);
       const resp = await s3(acct, cred, 'PUT', objPath(b.bucket, b.key), { body: bytes, payloadHash: hex(await sha256(bytes)) });
       if (!resp.ok) return json({ error: `上传失败 ${resp.status}：${(await resp.text()).slice(0, 160)}` }, 502);

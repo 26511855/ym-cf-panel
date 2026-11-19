@@ -22,7 +22,7 @@ export async function onRequestGet({ request, env }) {
     const zone = url.searchParams.get('zone');
     const what = url.searchParams.get('what');
     if (what === 'pagerules') {
-      const d = await cfApiAll(acct, `/zones/${zone}/pagerules`);
+      const d = await cfApiAll(acct, `/zones/${encodeURIComponent(zone)}/pagerules`);
       return json({
         total: d.result_info ? d.result_info.total_count : (d.result || []).length, truncated: !!(d.result_info && d.result_info.truncated),
         rules: (d.result || []).map((r) => ({
@@ -34,13 +34,13 @@ export async function onRequestGet({ request, env }) {
     }
     // rulesets: list zone rulesets, keep the interesting phases with their rules
     // (the rulesets list endpoint rejects per_page > 50 — cap it)
-    const d = await cfApiAll(acct, `/zones/${zone}/rulesets`, { perPage: 50 });
+    const d = await cfApiAll(acct, `/zones/${encodeURIComponent(zone)}/rulesets`, { perPage: 50 });
     const sets = [];
     for (const rs of d.result || []) {
       if (!PHASE_LABEL[rs.phase]) continue;
       let rules = [];
       try {
-        const full = await cfApi(acct, `/zones/${zone}/rulesets/${rs.id}`);
+        const full = await cfApi(acct, `/zones/${encodeURIComponent(zone)}/rulesets/${encodeURIComponent(rs.id)}`);
         rules = ((full.result && full.result.rules) || []).map((r) => ({
           id: r.id, description: r.description || r.expression || '(无名规则)',
           expression: r.expression || '', action: r.action || '', enabled: r.enabled !== false,

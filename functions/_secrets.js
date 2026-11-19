@@ -38,7 +38,7 @@ async function loadKek(env) {
     throw new Error('DATA_KEK 不是合法的 base64：请按 README「出事了怎么办」第 9 条处理');
   }
   if (bytes.length !== 32) {
-    throw new Error(`DATA_KEK 长度不对（解码后 ${bytes.length} 字节，应为 32 字节）：请按 README「出事了怎么办」第 9 条处理`);
+    throw new Error('DATA_KEK 长度不对（应为 base64 编码的 32 字节）：请按 README「出事了怎么办」第 9 条处理');
   }
   const key = await crypto.subtle.importKey('raw', bytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
   return { key };

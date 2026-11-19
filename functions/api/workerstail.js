@@ -11,13 +11,13 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const b = await readBody(request);
     const acct = await resolveAccount(env, b.account);
     const script = String(b.script || '');
-    const d = await cfApi(acct, `/accounts/${acct.accountId}/workers/scripts/${script}/tails`, { method: 'POST', body: JSON.stringify({}) });
+    const d = await cfApi(acct, `/accounts/${acct.accountId}/workers/scripts/${encodeURIComponent(script)}/tails`, { method: 'POST', body: JSON.stringify({}) });
     const tail = d.result;
     if (!tail || !tail.url) return json({ error: '创建日志会话失败' }, 502);
     const events = [];
-    const cleanup = () => cfApi(acct, `/accounts/${acct.accountId}/workers/scripts/${script}/tails/${tail.id}`, { method: 'DELETE' }).catch(() => {});
+    const cleanup = () => cfApi(acct, `/accounts/${acct.accountId}/workers/scripts/${encodeURIComponent(script)}/tails/${encodeURIComponent(tail.id)}`, { method: 'DELETE' }).catch(() => {});
     try {
-      const wsResp = await fetch(tail.url.replace(/^http/, 'ws'), { headers: { Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'trace-v1' } });
+      const wsResp = await fetch(tail.url.replace(/^http/, 'ws'), { headers: { Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'trace-v1' }, signal: (() => { try { return AbortSignal.timeout(8000); } catch { return undefined; } })() }); // 建连 8 秒超时；监听本身已有 7 秒兜底
       const ws = wsResp.webSocket;
       if (!ws) throw new Error('当前环境不支持 WebSocket 客户端');
       ws.accept();

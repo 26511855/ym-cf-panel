@@ -418,7 +418,7 @@ function sparkline(trend) {
 
 function tableHtml(headers, rows) {
   if (!rows.length) return '<p class="hint">暂无数据</p>';
-  return `<div style="overflow-x:auto"><table><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr>${rows.join('')}</table></div>`;
+  return `<div style="overflow-x:auto"><table><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>${rows.join('')}</table></div>`;
 }
 
 function renderDetail(id) {

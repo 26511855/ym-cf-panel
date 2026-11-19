@@ -70,7 +70,7 @@ export async function onRequestPost({ request, env }) {
     if (entries.length > MAX_KEYS) return json({ error: `一次最多导入 ${MAX_KEYS} 条` }, 400);
     const pairs = entries.map((e) => ({ key: String(e.name ?? e.key ?? ''), value: String(e.value ?? '') })).filter((p) => p.key);
     for (let i = 0; i < pairs.length; i += 100) {
-      await cfApi(acct, `/accounts/${acct.accountId}/storage/kv/namespaces/${b.ns}/bulk`, { method: 'PUT', body: JSON.stringify(pairs.slice(i, i + 100)) });
+      await cfApi(acct, `/accounts/${acct.accountId}/storage/kv/namespaces/${encodeURIComponent(b.ns)}/bulk`, { method: 'PUT', body: JSON.stringify(pairs.slice(i, i + 100)) });
     }
     await addAudit(env, a.sess.user, 'kv.import', `${acct.name} · 导入 ${pairs.length} 条`);
     return json({ ok: true, written: pairs.length });

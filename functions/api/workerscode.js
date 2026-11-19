@@ -6,6 +6,7 @@ import { addAudit } from '../_store.js';
 // code (preserving existing bindings), workers.dev subdomain toggle,
 // zone routes list/create/delete, and script deletion.
 const A = (acct) => `/accounts/${acct.accountId}/workers/scripts`;
+const timeoutSignal = (ms) => { try { return AbortSignal.timeout(ms); } catch { return undefined; } };
 
 export async function onRequestGet({ request, env }) {
   const a = await requireAuth(env, request); if (a.error) return a.error;
@@ -14,12 +15,12 @@ export async function onRequestGet({ request, env }) {
     const acct = await resolveAccount(env, url.searchParams.get('account'));
     const what = url.searchParams.get('what') || 'content';
     if (what === 'routes') {
-      const d = await cfApiAll(acct, `/zones/${url.searchParams.get('zone')}/workers/routes`);
+      const d = await cfApiAll(acct, `/zones/${encodeURIComponent(url.searchParams.get('zone') || '')}/workers/routes`);
       return json({ routes: (d.result || []).map((r) => ({ id: r.id, pattern: r.pattern, script: r.script || '' })), total: d.result_info ? d.result_info.total_count : (d.result || []).length, truncated: !!(d.result_info && d.result_info.truncated) });
     }
     const script = url.searchParams.get('script');
     const resp = await fetch(`https://api.cloudflare.com/client/v4${A(acct)}/${encodeURIComponent(script)}`, {
-      headers: { Authorization: `Bearer ${acct.token}` },
+      headers: { Authorization: `Bearer ${acct.token}` }, signal: timeoutSignal(10000),
     });
     const raw = await resp.text();
     if (!resp.ok) return json({ error: `读取脚本失败（HTTP ${resp.status}）` }, 502);
@@ -48,6 +49,7 @@ export async function onRequestPost({ request, env }) {
       const script = String(b.script || '');
       const code = String(b.code || '');
       if (!code.trim()) return json({ error: '代码不能为空' }, 400);
+      if (code.length > 5 * 1024 * 1024) return json({ error: '代码太长（面板上传上限 5MB）' }, 400);
       // Preserve the existing script's bindings AND compatibility settings.
       // A failed settings read must abort the upload unless it is a 404
       // (script genuinely does not exist yet): treating a permission or
@@ -90,7 +92,7 @@ export async function onRequestPost({ request, env }) {
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
       form.append(module ? 'index.js' : 'script', new Blob([code], { type: 'application/javascript' }), module ? 'index.js' : 'script.js');
       const resp = await fetch(`https://api.cloudflare.com/client/v4${A(acct)}/${encodeURIComponent(script)}`, {
-        method: 'PUT', headers: { Authorization: `Bearer ${acct.token}` }, body: form,
+        method: 'PUT', headers: { Authorization: `Bearer ${acct.token}` }, body: form, signal: timeoutSignal(30000),
       });
       const d = await resp.json().catch(() => null);
       if (!resp.ok || !d || !d.success) {
@@ -106,12 +108,12 @@ export async function onRequestPost({ request, env }) {
       return json({ ok: true });
     }
     if (b.what === 'subdomain') {
-      await cfApi(acct, `${A(acct)}/${b.script}/subdomain`, { method: 'POST', body: JSON.stringify({ enabled: !!b.enabled, previews_enabled: !!b.enabled }) });
+      await cfApi(acct, `${A(acct)}/${encodeURIComponent(b.script)}/subdomain`, { method: 'POST', body: JSON.stringify({ enabled: !!b.enabled, previews_enabled: !!b.enabled }) });
       await addAudit(env, a.sess.user, 'worker.subdomain', `${acct.name} · ${b.script} workers.dev ${b.enabled ? '开' : '关'}`);
       return json({ ok: true });
     }
     if (b.what === 'route') {
-      await cfApi(acct, `/zones/${b.zone}/workers/routes`, { method: 'POST', body: JSON.stringify({ pattern: b.pattern, script: b.script }) });
+      await cfApi(acct, `/zones/${encodeURIComponent(b.zone)}/workers/routes`, { method: 'POST', body: JSON.stringify({ pattern: b.pattern, script: b.script }) });
       await addAudit(env, a.sess.user, 'worker.route-create', `${acct.name} · ${b.pattern} → ${b.script}`);
       return json({ ok: true });
     }
@@ -126,10 +128,10 @@ export async function onRequestDelete({ request, env }) {
     const acct = await resolveAccount(env, url.searchParams.get('account'));
     const kind = url.searchParams.get('kind');
     if (kind === 'route') {
-      await cfApi(acct, `/zones/${url.searchParams.get('zone')}/workers/routes/${url.searchParams.get('id')}`, { method: 'DELETE' });
+      await cfApi(acct, `/zones/${encodeURIComponent(url.searchParams.get('zone') || '')}/workers/routes/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
       await addAudit(env, a.sess.user, 'worker.route-delete', `${acct.name} · 删除路由`);
     } else {
-      await cfApi(acct, `${A(acct)}/${url.searchParams.get('script')}?force=true`, { method: 'DELETE' });
+      await cfApi(acct, `${A(acct)}/${encodeURIComponent(url.searchParams.get('script') || '')}?force=true`, { method: 'DELETE' });
       await addAudit(env, a.sess.user, 'worker.delete', `${acct.name} · 删除脚本 ${url.searchParams.get('script')}`);
     }
     return json({ ok: true });

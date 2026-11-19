@@ -29,7 +29,7 @@ async function pbkdf2hex(password, salt, iter) {
   return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function timingSafeEq(a, b) {
+export function timingSafeEq(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -62,7 +62,10 @@ export function cookieOf(request) {
   return m ? m[1] : null;
 }
 
+export function missingKv(env) { return !env || !env.PANEL_KV; }
+
 export async function getAdmin(env) {
+  if (missingKv(env)) throw new Error('PANEL_KV 未绑定：请在 Pages 项目设置里把 KV 绑定名填为 PANEL_KV 后重新部署');
   const raw = await env.PANEL_KV.get('admin');
   if (!raw) return null;
   try {
@@ -111,6 +114,7 @@ export function json(data, status = 200, extraHeaders = {}) {
 }
 
 export async function requireAuth(env, request) {
+  if (missingKv(env)) return { error: json({ error: 'PANEL_KV 未绑定：请在 Pages 项目设置里把 KV 绑定名填为 PANEL_KV 后重新部署' }, 500) };
   const admin = await getAdmin(env);
   if (!admin) return { error: json({ error: 'needs_setup' }, 428) };
   const sess = await getSession(env, request);
@@ -131,6 +135,17 @@ export async function requireAuth(env, request) {
   return { admin, sess };
 }
 
+// 请求体上限 8MB：要容下 R2 面板上传（4MB 文件的 base64 约 5.5MB）与
+// Workers 代码上传，又不能让超大/坏 JSON 静默变成 {} 被当成正常参数。
+// 空体按 {} 处理（兼容无体调用）；解析失败/超限显式抛带 status 的错，
+// 调用方 try/catch 的 fail() 会回对应的 JSON 4xx/413。
 export async function readBody(request) {
-  try { return await request.json(); } catch { return {}; }
+  const MAX_BODY = 8 * 1024 * 1024;
+  const len = Number(request.headers.get('content-length') || 0);
+  if (len > MAX_BODY) throw Object.assign(new Error('请求体太大'), { status: 413 });
+  const text = await request.text();
+  if (text.length > MAX_BODY) throw Object.assign(new Error('请求体太大'), { status: 413 });
+  if (!text.trim()) return {};
+  try { return JSON.parse(text); }
+  catch { throw Object.assign(new Error('请求体不是合法 JSON'), { status: 400 }); }
 }

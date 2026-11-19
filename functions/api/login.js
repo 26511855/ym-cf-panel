@@ -39,6 +39,7 @@ gFails.fails = (gFails.fails || 0) + 1;
 }
 
 export async function onRequestPost({ request, env}) {
+if (!env.PANEL_KV) return json({ error: 'PANEL_KV 未绑定：请在 Pages 项目设置里把 KV 绑定名填为 PANEL_KV 后重新部署'}, 500);
 const admin = await getAdmin(env);
 if (!admin) return json({ error: 'needs_setup'}, 428);
 const ip = request.headers.get('cf-connecting-ip') || 'unknown';
@@ -47,7 +48,8 @@ const st = ipState(ip, now0);
 if (st && st.lockUntil && st.lockUntil > now0) return json({ error: '登录尝试过于频繁，请 15 分钟后再试'}, 429);
 const gfails = globalFails(now0);
 if (gfails >= 20) await new Promise((r) => setTimeout(r, Math.min(2000, (gfails - 19) * 100)));
-const { user, password} = await readBody(request);
+let _lb; try { _lb = await readBody(request); } catch (e) { return json({ error: e.message}, e.status || 400); }
+const { user, password} = _lb;
 // 用户名与口令分开验：用户名不对时也照样对管理员盐跑
 // 一遍口令哈希再判失败，避免「用户名错 → 立刻返回、用户名对 → 慢」
 // 的耗时差把真实用户名漏出去（旧版是 || 短路，用户名错时不跑哈希）。

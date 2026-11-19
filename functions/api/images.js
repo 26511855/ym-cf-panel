@@ -28,7 +28,7 @@ export async function onRequestDelete({ request, env }) {
   try {
     const url = new URL(request.url);
     const acct = await resolveAccount(env, url.searchParams.get('account'));
-    await cfApi(acct, `${A(acct)}/${url.searchParams.get('id')}`, { method: 'DELETE' });
+    await cfApi(acct, `${A(acct)}/${encodeURIComponent(url.searchParams.get('id') || '')}`, { method: 'DELETE' });
     await addAudit(env, a.sess.user, 'image.delete', `${acct.name} · 删除图片`);
     return json({ ok: true });
   } catch (e) { return fail(e); }
