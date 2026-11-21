@@ -44,6 +44,18 @@ jobs:
         with:
           ref: ${{ steps.t.outputs.tag }}
 
+      - name: 准备 Node（装锁定版工具与跑测试用）
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 装锁定版工具（npm ci 按 package-lock.json）
+        run: npm ci
+
+      - name: 跑仓库测试（不过不打包）
+        run: |
+          for f in tests/*.mjs; do node "$f" || exit 1; done
+
       - name: 按清单打包
         env:
           ZIPNAME: ${{ steps.t.outputs.zip }}
@@ -123,7 +135,7 @@ jobs:
           WZIPNAME: ${{ steps.t.outputs.wzip }}
         run: |
           set -euo pipefail
-          npx -y esbuild@0.25.0 build/worker-entry.js --bundle --format=esm --platform=neutral --target=es2022 --outfile=_worker.js
+          ./node_modules/.bin/esbuild build/worker-entry.js --bundle --format=esm --platform=neutral --target=es2022 --outfile=_worker.js
           rm -rf wstage && mkdir wstage
           cp _worker.js wstage/
           while IFS= read -r f; do
